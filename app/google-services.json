@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "316352974949",
+    "project_id": "simuladormensajeria",
+    "storage_bucket": "simuladormensajeria.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:316352974949:android:ada6f84e467b60a342b68c",
+        "android_client_info": {
+          "package_name": "com.fermin.simuladormensajeria"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvOONA_j2b8VAPKZCUkHEFwQG2yJdSSlw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
