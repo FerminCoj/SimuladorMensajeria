@@ -40,18 +40,36 @@ android {
     }
 }
 
+
+
 dependencies {
-    implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
-    implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-auth")
+    // ===============================
+    // Firebase
+    // ===============================
+    implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
+    implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+
+    // ===============================
+    // AndroidX y Compose
+    // ===============================
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
+    implementation(platform("androidx.compose:compose-bom:2024.09.02"))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
+    implementation("androidx.compose.ui:ui-text")
+    implementation("androidx.compose.ui:ui-text-google-fonts")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.foundation:foundation-layout")
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+
+    // ===============================
+    // Tests
+    // ===============================
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

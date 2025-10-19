@@ -11,10 +11,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.fermin.simuladormensajeria.ui.ProfileSetupScreen
 import com.fermin.simuladormensajeria.ui.theme.SimuladorMensajeriaTheme
+import com.fermin.simuladormensajeria.vm.AuthViewModel
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 
@@ -30,11 +33,42 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SimuladorMensajeriaTheme {
-                val user = auth.currentUser
-                if (user != null) {
-                    BienvenidaScreen(user.email ?: "Usuario")
-                } else {
-                    LoginScreen(auth)
+                // Estados principales
+                var currentUser by remember { mutableStateOf(auth.currentUser) }
+                var showProfileSetup by remember { mutableStateOf(false) }
+                val authVM = remember { AuthViewModel() }
+
+                when {
+                    showProfileSetup -> {
+                        ProfileSetupScreen(
+                            authVM = authVM,
+                            onDone = {
+                                showProfileSetup = false
+                                currentUser = auth.currentUser
+                            }
+                        )
+                    }
+                    currentUser != null -> {
+                        BienvenidaScreen(
+                            email = currentUser?.email ?: "Usuario",
+                            onLogout = {
+                                auth.signOut()
+                                currentUser = null
+                                Toast.makeText(
+                                    this,
+                                    "Sesión cerrada correctamente",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    }
+                    else -> {
+                        LoginScreen(
+                            auth = auth,
+                            onLoginSuccess = { currentUser = auth.currentUser },
+                            onRegisterSuccess = { showProfileSetup = true }
+                        )
+                    }
                 }
             }
         }
@@ -42,7 +76,12 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun LoginScreen(auth: FirebaseAuth) {
+fun LoginScreen(
+    auth: FirebaseAuth,
+    onLoginSuccess: () -> Unit,
+    onRegisterSuccess: () -> Unit
+) {
+    val ctx = LocalContext.current
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLogin by remember { mutableStateOf(true) }
@@ -54,7 +93,10 @@ fun LoginScreen(auth: FirebaseAuth) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(if (isLogin) "Iniciar Sesión" else "Crear Cuenta", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            if (isLogin) "Iniciar Sesión" else "Crear Cuenta",
+            style = MaterialTheme.typography.headlineMedium
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -85,34 +127,20 @@ fun LoginScreen(auth: FirebaseAuth) {
                     auth.signInWithEmailAndPassword(email, password)
                         .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
-                                Toast.makeText(
-                                    null,
-                                    "Inicio de sesión exitoso",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                Toast.makeText(ctx, "Inicio de sesión exitoso", Toast.LENGTH_SHORT).show()
+                                onLoginSuccess()
                             } else {
-                                Toast.makeText(
-                                    null,
-                                    "Error: ${task.exception?.message}",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                                Toast.makeText(ctx, "Error: ${task.exception?.message}", Toast.LENGTH_LONG).show()
                             }
                         }
                 } else {
                     auth.createUserWithEmailAndPassword(email, password)
                         .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
-                                Toast.makeText(
-                                    null,
-                                    "Registro exitoso",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                Toast.makeText(ctx, "Registro exitoso", Toast.LENGTH_SHORT).show()
+                                onRegisterSuccess()
                             } else {
-                                Toast.makeText(
-                                    null,
-                                    "Error: ${task.exception?.message}",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                                Toast.makeText(ctx, "Error: ${task.exception?.message}", Toast.LENGTH_LONG).show()
                             }
                         }
                 }
@@ -129,11 +157,25 @@ fun LoginScreen(auth: FirebaseAuth) {
 }
 
 @Composable
-fun BienvenidaScreen(email: String) {
+fun BienvenidaScreen(email: String, onLogout: () -> Unit) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = "Bienvenido $email", style = MaterialTheme.typography.headlineMedium)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "Bienvenido $email",
+                style = MaterialTheme.typography.headlineMedium
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Button(onClick = { onLogout() }) {
+                Text("Cerrar sesión")
+            }
+        }
     }
 }
+
