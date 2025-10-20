@@ -11,6 +11,9 @@ import androidx.compose.ui.unit.dp
 import com.fermin.simuladormensajeria.vm.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun ProfileSetupScreen(
@@ -21,6 +24,7 @@ fun ProfileSetupScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
 
+    val scope = rememberCoroutineScope()
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
     val user = auth.currentUser
@@ -77,30 +81,43 @@ fun ProfileSetupScreen(
                     onClick = {
                         if (name.isBlank()) {
                             error = "Por favor, ingresa un nombre"
-                        } else if (user != null) {
+                            return@Button
+                        }
+
+                        if (user != null) {
                             isSaving = true
-                            // Actualiza el nombre de usuario en Firebase Auth
-                            authVM.updateDisplayName(name)
+                            scope.launch {
+                                try {
+                                    // 🔹 1) Actualiza el nombre en Firebase Auth
+                                    authVM.updateDisplayName(name)
 
-                            // Guarda también los datos del perfil en Firestore
-                            val datos = mapOf(
-                                "uid" to user.uid,
-                                "correo" to user.email,
-                                "nombre" to name,
-                                "fechaCreacion" to System.currentTimeMillis()
-                            )
+                                    // 🔹 2) Espera a que se guarde correctamente en Firestore
+                                    val datos = mapOf(
+                                        "uid" to user.uid,
+                                        "correo" to user.email,
+                                        "nombre" to name,
+                                        "displayName" to name,
+                                        "fechaCreacion" to System.currentTimeMillis(),
+                                        "about" to "Disponible"
+                                    )
 
-                            db.collection("usuarios")
-                                .document(user.uid)
-                                .set(datos)
-                                .addOnSuccessListener {
+                                    db.collection("usuarios")
+                                        .document(user.uid)
+                                        .set(datos, SetOptions.merge())
+                                        .await()
+
+                                    // 🔹 3) Refresca datos en el ViewModel
+                                    authVM.refreshUser()
+
+                                    // 🔹 4) Navega solo cuando todo haya finalizado
                                     isSaving = false
                                     onDone()
-                                }
-                                .addOnFailureListener {
-                                    error = "Error al guardar el perfil"
+
+                                } catch (e: Exception) {
+                                    error = "Error al guardar: ${e.message}"
                                     isSaving = false
                                 }
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),

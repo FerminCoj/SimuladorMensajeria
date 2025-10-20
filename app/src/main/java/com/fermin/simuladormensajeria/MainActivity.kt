@@ -15,8 +15,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.fermin.simuladormensajeria.ui.BienvenidaScreen
 import com.fermin.simuladormensajeria.ui.ProfileSetupScreen
 import com.fermin.simuladormensajeria.ui.theme.SimuladorMensajeriaTheme
+import com.fermin.simuladormensajeria.vm.AuthUiState
 import com.fermin.simuladormensajeria.vm.AuthViewModel
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
@@ -33,41 +35,62 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SimuladorMensajeriaTheme {
-                // Estados principales
-                var currentUser by remember { mutableStateOf(auth.currentUser) }
-                var showProfileSetup by remember { mutableStateOf(false) }
                 val authVM = remember { AuthViewModel() }
+                val state by authVM.state.collectAsState()
 
-                when {
-                    showProfileSetup -> {
-                        ProfileSetupScreen(
-                            authVM = authVM,
-                            onDone = {
-                                showProfileSetup = false
-                                currentUser = auth.currentUser
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    when (state) {
+
+                        is AuthUiState.Loading -> {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                CircularProgressIndicator()
                             }
-                        )
-                    }
-                    currentUser != null -> {
-                        BienvenidaScreen(
-                            email = currentUser?.email ?: "Usuario",
-                            onLogout = {
-                                auth.signOut()
-                                currentUser = null
-                                Toast.makeText(
-                                    this,
-                                    "Sesión cerrada correctamente",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                        }
+
+                        is AuthUiState.Unauthenticated -> {
+                            LoginScreen(
+                                auth = auth,
+                                onLoginSuccess = { authVM.refreshUser() },
+                                onRegisterSuccess = { authVM.refreshUser() }
+                            )
+                        }
+
+                        is AuthUiState.Authenticated -> {
+                            val usuario = (state as AuthUiState.Authenticated).user
+
+                            // Si no tiene nombre configurado, ir a pantalla de perfil
+                            if (usuario.displayName.isNullOrBlank() || usuario.displayName == "null") {
+                                ProfileSetupScreen(
+                                    authVM = authVM,
+                                    onDone = {
+                                        authVM.refreshUser()
+                                    }
+                                )
+                            } else {
+                                BienvenidaScreen(
+                                    authVM = authVM,
+                                    onLogout = {
+                                        authVM.signOut()
+                                        Toast.makeText(
+                                            this,
+                                            "Sesión cerrada correctamente",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                )
                             }
-                        )
-                    }
-                    else -> {
-                        LoginScreen(
-                            auth = auth,
-                            onLoginSuccess = { currentUser = auth.currentUser },
-                            onRegisterSuccess = { showProfileSetup = true }
-                        )
+                        }
+
+                        is AuthUiState.Error -> {
+                            val msg = (state as AuthUiState.Error).message
+                            ErrorScreen(
+                                mensaje = msg,
+                                onRetry = { authVM.refreshUser() }
+                            )
+                        }
                     }
                 }
             }
@@ -157,7 +180,7 @@ fun LoginScreen(
 }
 
 @Composable
-fun BienvenidaScreen(email: String, onLogout: () -> Unit) {
+fun ErrorScreen(mensaje: String, onRetry: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -166,16 +189,16 @@ fun BienvenidaScreen(email: String, onLogout: () -> Unit) {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "Bienvenido $email",
-                style = MaterialTheme.typography.headlineMedium
+                text = "Error: $mensaje",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyLarge
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Button(onClick = { onLogout() }) {
-                Text("Cerrar sesión")
+            Button(onClick = { onRetry() }) {
+                Text("Reintentar conexión")
             }
         }
     }
 }
-
