@@ -15,7 +15,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.fermin.simuladormensajeria.ui.BienvenidaScreen
+import com.fermin.simuladormensajeria.ui.ChatScreen
+import com.fermin.simuladormensajeria.ui.ContactosScreen
 import com.fermin.simuladormensajeria.ui.ProfileSetupScreen
 import com.fermin.simuladormensajeria.ui.theme.SimuladorMensajeriaTheme
 import com.fermin.simuladormensajeria.vm.AuthUiState
@@ -37,6 +38,9 @@ class MainActivity : ComponentActivity() {
             SimuladorMensajeriaTheme {
                 val authVM = remember { AuthViewModel() }
                 val state by authVM.state.collectAsState()
+
+                // Guarda el chat seleccionado: Pair(uidReceptor, nombreReceptor)
+                var selectedChat by remember { mutableStateOf<Pair<String, String>?>(null) }
 
                 Surface(modifier = Modifier.fillMaxSize()) {
                     when (state) {
@@ -61,26 +65,29 @@ class MainActivity : ComponentActivity() {
                         is AuthUiState.Authenticated -> {
                             val usuario = (state as AuthUiState.Authenticated).user
 
-                            // Si no tiene nombre configurado, ir a pantalla de perfil
+                            // Si falta nombre, mandar a configurar perfil
                             if (usuario.displayName.isNullOrBlank() || usuario.displayName == "null") {
                                 ProfileSetupScreen(
                                     authVM = authVM,
-                                    onDone = {
-                                        authVM.refreshUser()
-                                    }
+                                    onDone = { authVM.refreshUser() }
                                 )
                             } else {
-                                BienvenidaScreen(
-                                    authVM = authVM,
-                                    onLogout = {
-                                        authVM.signOut()
-                                        Toast.makeText(
-                                            this,
-                                            "Sesión cerrada correctamente",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                )
+                                // Si hay chat seleccionado, mostrar ChatScreen
+                                if (selectedChat != null) {
+                                    ChatScreen(
+                                        receptorId = selectedChat!!.first,
+                                        receptorNombre = selectedChat!!.second,
+                                        onBack = { selectedChat = null }
+                                    )
+                                } else {
+                                    // Lista de contactos con botón Cerrar sesión
+                                    ContactosScreen(
+                                        authVM = authVM,
+                                        onChatClick = { uid, nombre ->
+                                            selectedChat = uid to nombre
+                                        }
+                                    )
+                                }
                             }
                         }
 
@@ -98,6 +105,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/* ============================
+   Pantalla de Login/Registro
+   ============================ */
 @Composable
 fun LoginScreen(
     auth: FirebaseAuth,
@@ -179,6 +189,9 @@ fun LoginScreen(
     }
 }
 
+/* ============================
+   Pantalla de error/reintento
+   ============================ */
 @Composable
 fun ErrorScreen(mensaje: String, onRetry: () -> Unit) {
     Box(
@@ -196,7 +209,7 @@ fun ErrorScreen(mensaje: String, onRetry: () -> Unit) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Button(onClick = { onRetry() }) {
+            Button(onClick = onRetry) {
                 Text("Reintentar conexión")
             }
         }

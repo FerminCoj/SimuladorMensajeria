@@ -28,31 +28,33 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
+
     buildFeatures {
         compose = true
     }
 }
 
-
-
 dependencies {
     // ===============================
-    // Firebase
+    // 🔥 Firebase
     // ===============================
     implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
     implementation("com.google.firebase:firebase-analytics-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx") // ✅ Storage para imágenes
 
     // ===============================
-    // AndroidX y Compose
+    // 🎨 AndroidX y Jetpack Compose
     // ===============================
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -67,8 +69,14 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
 
+    // ✅ Íconos extendidos (AddPhotoAlternate, etc.)
+    implementation("androidx.compose.material:material-icons-extended")
+
+    // ✅ Coil (para mostrar imágenes en Compose)
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     // ===============================
-    // Tests
+    // 🧪 Tests
     // ===============================
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
