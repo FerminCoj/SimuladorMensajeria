@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddPhotoAlternate
@@ -16,9 +17,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
+import com.fermin.simuladormensajeria.fcm.ForegroundChatTracker
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -44,6 +47,7 @@ fun ChatScreen(
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
     val storage = FirebaseStorage.getInstance()
+    val context = LocalContext.current
     val currentUid = auth.currentUser?.uid ?: ""
     val chatId = listOf(currentUid, receptorId).sorted().joinToString("_")
 
@@ -54,6 +58,16 @@ fun ChatScreen(
     var imagenAmpliada by remember { mutableStateOf<String?>(null) }
     var mostrandoVistaPrevia by remember { mutableStateOf(false) }
     var cargando by remember { mutableStateOf(false) }
+
+    // 🟢 Registrar chat activo (para silenciar notificaciones mientras esté abierto)
+    LaunchedEffect(chatId) {
+        ForegroundChatTracker.setActiveChat(context, chatId)
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            ForegroundChatTracker.setActiveChat(context, null)
+        }
+    }
 
     // 🔹 Escucha en tiempo real los mensajes
     LaunchedEffect(chatId) {
@@ -167,6 +181,15 @@ fun ChatScreen(
         )
     }
 
+    // 🔹 Control de desplazamiento automático
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(mensajes.size) {
+        if (mensajes.isNotEmpty()) {
+            listState.animateScrollToItem(mensajes.lastIndex)
+        }
+    }
+
     // 🔹 UI principal del chat
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
@@ -179,6 +202,7 @@ fun ChatScreen(
         )
 
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .weight(1f)
                 .padding(8.dp)

@@ -1,5 +1,6 @@
 package com.fermin.simuladormensajeria.vm
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -8,6 +9,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.fermin.simuladormensajeria.data.UserRepository
 import com.fermin.simuladormensajeria.model.AppUser
+import com.fermin.simuladormensajeria.fcm.FcmTokenManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,18 +40,29 @@ class AuthViewModel(
     private val db = FirebaseFirestore.getInstance()
     private var userListener: ListenerRegistration? = null
 
+    // =====================================
+    // INICIALIZACIÓN
+    // =====================================
     init {
-        // 🔹 Esperar un poco antes de intentar conectarse a Firestore
+        // 🔹 Al iniciar, comprobamos si hay usuario autenticado
         viewModelScope.launch {
-            delay(1000)
-            refreshUser()
+            delay(800) // pequeña espera visual
+            val fbUser = auth.currentUser
+            if (fbUser != null) {
+                // Si ya hay sesión activa → sincroniza usuario
+                _state.value = AuthUiState.Loading
+                refreshUser(context = null) // el context puede ser opcional
+            } else {
+                // Si no hay sesión activa → muestra Login
+                _state.value = AuthUiState.Unauthenticated
+            }
         }
     }
 
     // =====================================
     // SINCRONIZA USUARIO ENTRE AUTH Y FIRESTORE
     // =====================================
-    fun refreshUser(retryCount: Int = 0) {
+    fun refreshUser(context: Context? = null, retryCount: Int = 0) {
         viewModelScope.launch {
             val fbUser = auth.currentUser
             if (fbUser == null) {
@@ -84,8 +97,14 @@ class AuthViewModel(
                     photoUrl = fbUser.photoUrl?.toString()
                 )
 
-                // 🔹 Estado autenticado correctamente
+                // ✅ Estado autenticado correctamente
                 _state.value = AuthUiState.Authenticated(usuario)
+
+                // 🔹 Sincroniza el token FCM del usuario autenticado
+                context?.let {
+                    FcmTokenManager.fetchAndStore(it)
+                    FcmTokenManager.trySyncWithUser(it)
+                }
 
                 // 🔹 Escucha en tiempo real cambios del perfil
                 userListener?.remove()
@@ -104,12 +123,12 @@ class AuthViewModel(
             } catch (e: Exception) {
                 val msg = e.message ?: "Error desconocido"
 
-                // 🔹 Reintenta hasta 3 veces en caso de error de conexión
+                // 🔁 Reintenta hasta 3 veces en caso de conexión débil
                 if (msg.contains("offline", ignoreCase = true) && retryCount < 3) {
                     _state.value =
                         AuthUiState.Error("Firestore sin conexión... reintentando (${retryCount + 1}/3)")
                     delay(1500)
-                    refreshUser(retryCount + 1)
+                    refreshUser(context, retryCount + 1)
                 } else {
                     _state.value = AuthUiState.Error(
                         when {
@@ -144,7 +163,15 @@ class AuthViewModel(
                     .await()
 
                 // 🔹 Refresca usuario actualizado
-                refreshUser()
+                _state.value = AuthUiState.Authenticated(
+                    AppUser(
+                        uid = fbUser.uid,
+                        email = fbUser.email,
+                        displayName = name,
+                        phone = fbUser.phoneNumber,
+                        photoUrl = fbUser.photoUrl?.toString()
+                    )
+                )
 
             } catch (e: Exception) {
                 _state.value = AuthUiState.Error("No se pudo actualizar el nombre: ${e.message}")
@@ -173,3 +200,4 @@ class AuthViewModel(
         _state.value = AuthUiState.Unauthenticated
     }
 }
+

@@ -1,3 +1,4 @@
+
 package com.fermin.simuladormensajeria.ui
 
 import androidx.compose.foundation.layout.*
@@ -8,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import com.fermin.simuladormensajeria.vm.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -28,6 +30,7 @@ fun ProfileSetupScreen(
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
     val user = auth.currentUser
+    val context = LocalContext.current // ✅ Mover aquí, fuera del scope.launch
 
     Box(
         modifier = Modifier
@@ -87,11 +90,13 @@ fun ProfileSetupScreen(
                         if (user != null) {
                             isSaving = true
                             scope.launch {
+                                var huboError = false
+
                                 try {
-                                    // 🔹 1) Actualiza el nombre en Firebase Auth
+                                    // 1️⃣ Actualiza el nombre en Firebase Auth
                                     authVM.updateDisplayName(name)
 
-                                    // 🔹 2) Espera a que se guarde correctamente en Firestore
+                                    // 2️⃣ Guarda datos en Firestore
                                     val datos = mapOf(
                                         "uid" to user.uid,
                                         "correo" to user.email,
@@ -106,16 +111,16 @@ fun ProfileSetupScreen(
                                         .set(datos, SetOptions.merge())
                                         .await()
 
-                                    // 🔹 3) Refresca datos en el ViewModel
-                                    authVM.refreshUser()
-
-                                    // 🔹 4) Navega solo cuando todo haya finalizado
-                                    isSaving = false
-                                    onDone()
-
                                 } catch (e: Exception) {
+                                    huboError = true
                                     error = "Error al guardar: ${e.message}"
-                                    isSaving = false
+                                }
+
+                                // 3️⃣ Refresca y finaliza (fuera del try/catch)
+                                isSaving = false
+                                if (!huboError) {
+                                    authVM.refreshUser(context)
+                                    onDone()
                                 }
                             }
                         }
@@ -137,4 +142,3 @@ fun ProfileSetupScreen(
         }
     }
 }
-

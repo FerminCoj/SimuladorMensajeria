@@ -52,7 +52,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-storage-ktx") // ✅ Storage para imágenes
-
+    implementation("com.google.firebase:firebase-messaging:24.0.0")
     // ===============================
     // 🎨 AndroidX y Jetpack Compose
     // ===============================
